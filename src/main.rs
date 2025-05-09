@@ -11,7 +11,10 @@ fn main() -> ExitCode {
         stdin.read_line(&mut input).unwrap();
         if input.trim() == "exit 0" {
             return ExitCode::SUCCESS;
+        } else if input.trim().starts_with("echo") {
+            println!("{}", input.strip_prefix("echo").unwrap().trim())
+        } else {
+            println!("{}: command not found", input.trim());
         }
-        println!("{}: command not found", input.trim());
     }
 }
