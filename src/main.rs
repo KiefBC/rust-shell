@@ -1,5 +1,7 @@
 #[allow(unused_imports)]
+use std::env;
 use std::io::{self, Write};
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 #[derive(PartialEq)]
@@ -23,6 +25,7 @@ impl ShellCommand {
 
 fn main() -> ExitCode {
     let stdin = io::stdin();
+
     loop {
         let mut input = String::new();
         print!("$ ");
@@ -51,24 +54,41 @@ fn parse_command(input: &str) -> ShellCommand {
 fn invalid_command(input: &str) {
     let mut user_input = input.split_whitespace();
     // user_input.next(); // Skip the Type part
-    println!("{}: not found", user_input.next().unwrap_or(""),);
+    println!("{}: not found", user_input.next().unwrap_or(""));
 }
 
 fn handle_type(input: &str) {
     let mut command_parts = input.split_whitespace();
     command_parts.next(); // Skip the "type" part
     let cmd_name = command_parts.next().unwrap_or("");
-    let cmd = ShellCommand::from_str(cmd_name);
-    match cmd {
-        ShellCommand::Exit => println!("exit is a shell builtin"),
-        ShellCommand::Echo => println!("echo is a shell builtin"),
-        ShellCommand::Type => println!("type is a shell builtin"),
-        ShellCommand::Unknown => {
-            if cmd_name.is_empty() {
-                println!("No command provided");
-            } else {
-                invalid_command(cmd_name);
+
+    if cmd_name.is_empty() {
+        println!("No command provided");
+        return;
+    }
+
+    match ShellCommand::from_str(cmd_name) {
+        ShellCommand::Exit | ShellCommand::Echo | ShellCommand::Type => {
+            println!("{} is a shell builtin", cmd_name);
+            return;
+        }
+        ShellCommand::Unknown => {}
+    }
+
+    match env::var("PATH") {
+        Ok(path_var) => {
+            for dir in path_var.split(':') {
+                let dir_path = Path::new(dir);
+                let full_path = dir_path.join(cmd_name);
+                if full_path.is_file() {
+                    println!("{} is {}", cmd_name, full_path.display());
+                    return;
+                }
             }
+            println!("{}: not found", cmd_name);
+        }
+        Err(_) => {
+            println!("PATH variable not set");
         }
     }
 }
