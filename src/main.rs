@@ -1,8 +1,8 @@
 #[allow(unused_imports)]
 use std::io::{self, Write};
-use std::process;
+use std::process::ExitCode;
 
-fn main() {
+fn main() -> ExitCode {
     let stdin = io::stdin();
     loop {
         let mut input = String::new();
@@ -10,7 +10,7 @@ fn main() {
         io::stdout().flush().unwrap();
         stdin.read_line(&mut input).unwrap();
         if input.trim() == "exit 0" {
-            process::exit(0x0100);
+            return ExitCode::SUCCESS;
         }
         println!("{}: command not found", input.trim());
     }
