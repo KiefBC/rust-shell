@@ -1,4 +1,3 @@
-#[allow(unused_imports)]
 use std::env;
 use std::io::{self, Write};
 use std::os::unix::fs::PermissionsExt;
@@ -13,6 +12,7 @@ enum BuiltinCommand {
     Echo,
     Type,
     Pwd,
+    Cd,
 }
 
 impl BuiltinCommand {
@@ -23,6 +23,7 @@ impl BuiltinCommand {
             "echo" => Some(BuiltinCommand::Echo),
             "type" => Some(BuiltinCommand::Type),
             "pwd" => Some(BuiltinCommand::Pwd),
+            "cd" => Some(BuiltinCommand::Cd),
             _ => None,
         }
     }
@@ -61,6 +62,7 @@ fn main() -> ExitCode {
             Some(BuiltinCommand::Echo) => handle_echo(&args),
             Some(BuiltinCommand::Type) => handle_type(&args),
             Some(BuiltinCommand::Pwd) => handle_pwd(),
+            Some(BuiltinCommand::Cd) => handle_cd(&args),
             None => {
                 if !try_execute_external(command_name, &args) {
                     print_command_not_found(command_name);
@@ -69,6 +71,24 @@ fn main() -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+/// Handles the cd command.
+fn handle_cd(args: &[&str]) {
+    if args.is_empty() {
+        eprintln!("cd: missing argument");
+        return;
+    }
+    let target_dir = args.first().map_or(".", |&path| path); // Slightly more idiomatic than unwrap_or for this
+
+    match env::set_current_dir(target_dir) {
+        Ok(_) => {
+            // Successfully changed directory.
+        }
+        Err(_) => {
+            eprintln!("cd: {}: No such file or directory", target_dir);
+        }
+    }
 }
 
 /// Echo's out the current working directory
@@ -195,3 +215,4 @@ fn handle_exit(args: &[&str]) -> ExitCode {
         }
     }
 }
+
