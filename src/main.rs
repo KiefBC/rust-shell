@@ -50,27 +50,59 @@ fn main() -> ExitCode {
             continue; // Skip empty lines
         }
 
-        let mut input_parts = input.split_whitespace();
-        let command_name = match input_parts.next() {
-            Some(cmd) => cmd,
-            None => continue, // Empty input (probably don't need this)
-        };
-        let args: Vec<&str> = input_parts.collect();
+        let parsed_args: Vec<String> = parse_input(input);
+        if parsed_args.is_empty() {
+            continue; // Skip empty lines
+        }
+
+        let command_name = &parsed_args[0];
+        let arg_handler: Vec<&str> = parsed_args.iter().skip(1).map(|s| s.as_str()).collect();
 
         match BuiltinCommand::from_str(command_name) {
-            Some(BuiltinCommand::Exit) => return handle_exit(&args),
-            Some(BuiltinCommand::Echo) => handle_echo(&args),
-            Some(BuiltinCommand::Type) => handle_type(&args),
+            Some(BuiltinCommand::Exit) => return handle_exit(&arg_handler),
+            Some(BuiltinCommand::Echo) => handle_echo(&arg_handler),
+            Some(BuiltinCommand::Type) => handle_type(&arg_handler),
             Some(BuiltinCommand::Pwd) => handle_pwd(),
-            Some(BuiltinCommand::Cd) => handle_cd(&args),
+            Some(BuiltinCommand::Cd) => handle_cd(&arg_handler),
             None => {
-                if !try_execute_external(command_name, &args) {
+                if !try_execute_external(command_name, &arg_handler) {
                     print_command_not_found(command_name);
                 }
             }
         }
     }
     ExitCode::SUCCESS
+}
+
+/// Handler for processing shell input
+fn parse_input(input: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current_arg: String = String::new();
+    let mut in_quotes = false;
+
+    for ch in input.chars() {
+        match ch {
+            '\'' => {
+                in_quotes = !in_quotes;
+            }
+            c if c.is_whitespace() => {
+                if in_quotes {
+                    current_arg.push(c);
+                } else if !current_arg.is_empty() {
+                    args.push(current_arg.clone());
+                    current_arg.clear();
+                }
+            }
+            _ => {
+                current_arg.push(ch);
+            }
+        }
+    }
+
+    if !current_arg.is_empty() || in_quotes {
+        args.push(current_arg);
+    }
+    args
 }
 
 /// Handles the cd command.
@@ -203,6 +235,18 @@ fn find_in_path(cmd_name: &str) -> Option<PathBuf> {
 
 /// Handles the echo command.
 fn handle_echo(args: &[&str]) {
+    if args.is_empty() {
+        println!("Usage: echo <string>");
+        return;
+    }
+
+    if "'" == args[0] {
+        // If the first argument is a single quote, we should print the rest of the arguments
+        // as they are, without interpreting them.
+        println!("{}", args[1..].join(" "));
+        return;
+    }
+
     println!("{}", args.join(" "));
 }
 
