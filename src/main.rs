@@ -79,14 +79,29 @@ fn handle_cd(args: &[&str]) {
         eprintln!("cd: missing argument");
         return;
     }
-    let target_dir = args.first().map_or(".", |&path| path); // Slightly more idiomatic than unwrap_or for this
 
-    match env::set_current_dir(target_dir) {
-        Ok(_) => {
-            // Successfully changed directory.
+    let to_dir = args[0];
+    if to_dir == "~" {
+        match home::home_dir() {
+            Some(home_path) => {
+                if env::set_current_dir(&home_path).is_err() {
+                    eprintln!("cd: {}: No such file or directory", home_path.display());
+                }
+                // Successfully changed directory to home.
+            }
+            None => {
+                eprintln!("cd: HOME not set");
+            }
         }
-        Err(_) => {
-            eprintln!("cd: {}: No such file or directory", target_dir);
+    } else {
+        let target_dir = to_dir;
+        match env::set_current_dir(target_dir) {
+            Ok(_) => {
+                // Successfully changed directory.
+            }
+            Err(_) => {
+                eprintln!("cd: {}: No such file or directory", target_dir);
+            }
         }
     }
 }
@@ -108,9 +123,6 @@ fn try_execute_external(cmd_name: &str, args: &[&str]) -> bool {
         let mut command = Command::new(&cmd_full_path); // Execute using the full path
         command.arg0(cmd_name);
         command.args(args);
-        command.stdin(std::process::Stdio::inherit());
-        command.stdout(std::process::Stdio::inherit());
-        command.stderr(std::process::Stdio::inherit());
 
         if let Ok(path_var) = env::var("PATH") {
             command.env("PATH", path_var);
@@ -199,20 +211,14 @@ fn handle_exit(args: &[&str]) -> ExitCode {
     // The basic `exit` command usually takes an optional exit code.
     // For example, `exit 0` or `exit 1`.
     if args.is_empty() {
-        // println!("Exiting shell...");
         ExitCode::SUCCESS
+    } else if let Ok(code) = args[0].parse::<u8>() {
+        ExitCode::from(code)
     } else {
-        // Try to parse the first argument as an exit code.
-        if let Ok(code) = args[0].parse::<u8>() {
-            // println!("Exiting shell with code {}...", code);
-            ExitCode::from(code)
-        } else {
-            eprintln!("exit: numeric argument required: {}", args[0]);
-            // According to POSIX, if the argument is non-numeric,
-            // the shell shall exit with a non-zero exit status, but this is not an error
-            // that prevents exit. Some shells exit 255, others 1 or 2.
-            ExitCode::from(1)
-        }
+        eprintln!("exit: numeric argument required: {}", args[0]);
+        // According to POSIX, if the argument is non-numeric,
+        // the shell shall exit with a non-zero exit status, but this is not an error
+        // that prevents exit. Some shells exit 255, others 1 or 2.
+        ExitCode::from(1)
     }
 }
-
